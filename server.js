@@ -21,7 +21,7 @@ var base64ToImage = require('base64-to-image');
 var os = require("os");
 var hostname = os.hostname();
  
- 
+ var fromEmail = "info@invitee.ca";
  //store Data 
 let storage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -48,21 +48,23 @@ app.use(function (req, res, next) {
 
 // Email Coding Start
 
-var mailer = nodemailer.createTransport({
-        host : 'host.hostboxcontrol.com',
- 
+var mailer = nodemailer.createTransport({ 
+      service: 'Godaddy',
+      host : 'smtpout.asia.secureserver.net',
+ secureConnection: true,
   
-    port  : '587',
+    port  : '80',
     auth: {
-        user: "sumit@bhayanisumit.in",
+        user: "info@invitee.ca",
         pass: "Sumital@0612"
     }
 });
-
+ 
  mailer.use('compile',hbs({
     viewPath : 'emails/register',
     extName : '.hbs'
  }));
+ 
  
 
 
@@ -74,28 +76,109 @@ app.get('/', (req, res) => {
   // Note: __dirname is directory that contains the JavaScript source code. Try logging it and see what you get!
   // Mine was '/Users/zellwk/Projects/demo-repos/crud-express-mongo' for this app.
 })
- 
-app.post('/organizerSignup', (req, res) => {
-  //  let validator = new v( req.body, {
-  //       organizer_email: 'required',
-  //       organizer_name : 'required',
-  //       organizer_password : 'required',
-  // });
- 
-  //   validator.check().then(function (matched) {
-  //       if (!matched) {
-  //           res.status(422).send(validator.errors);
-  //       }else{
-  //         console.log("else");
-  //       }
-  //   });
 
+
+ app.post('/forogotpassword', (req, res) => {
+ 
+var randomno =  Math.floor(100000 + Math.random() * 900000)
+      db.collection('organizer').findOne({  organizer_email :  req.body.organizer_email })
+      .then(function(doc) {
+        if(!doc){
+           res.send({
+            success: 'false',
+            message: 'No User id Match! Try Again.'
+          })
+        }else {
+
+       mailer.sendMail({
+      from : fromEmail,
+      to :  req.body.organizer_email ,
+      subject : 'Invitee.ca - Forgot password link',
+      template : 'forgotpwd',
+      context : {
+          email : req.body.organizer_email,
+          no : randomno
+      }
+  },function(err,respose){
+       console.log(err);
+      if(err){
+        res.send({
+             success: 'false',
+            message: 'No Email sent to your emailid'
+        })
+       }else {
+    
+
+       const organizer_forgotpwd = {
+            organizer_email: req.body.organizer_email,
+            organizer_random : randomno,
+            organizer_forgotpassword_date : Date.now(), 
+            forgotpassword_link : "notuse"
+         };
+            db.collection('forogotpasswordData').insertOne(organizer_forgotpwd, (err, results) => {
+               var objectid = results.insertedId;
+               if(err){
+                     res.send({
+             success: 'false',
+            message: 'something Went Wrong'
+        })
+               }else {
+                    res.send({
+             success: 'true',
+            message: 'Email sent successfully, please check your email  or spam',
+            forogotid:objectid
+        })
+               }
+
+            })
+    }
+  });
+           
+        }
+    })
+  });
+
+app.post('/verifycode', (req, res) => {
+  
+      db.collection('forogotpasswordData').findOne({  _id: new mongodb.ObjectID(req.body.id)})
+      .then(function(doc) {
+        if(!doc){
+           res.status(200).send({
+            success: 'false',
+            message: 'No User id Match! Try Again.'
+          })
+        }else {
+             
+             if(doc.organizer_random == req.body.code && doc.forgotpassword_link == "notuse" ){
+                res.status(200).send({
+                  success: 'true',
+                  message: 'Code Verified'
+                }) 
+                   db.collection('forogotpasswordData').updateOne(
+                    { _id: new mongodb.ObjectID(req.body.id)},
+                    { $set: { "forgotpassword_link" : 'use'}}, function(err, result) {
+                      
+                   });
+             }else{
+              res.status(200).send({
+                success: 'false',
+                message: 'Code Dose not match / code is usable'
+              })
+               }
+
+        }
+    })
+ });
+
+
+app.post('/organizerSignup', (req, res) => {
+ 
    db.collection('organizer').findOne({  organizer_email: req.body.organizer_email })
       .then(function(result) {
         if(result){
           
 
-           res.status(200).send({
+          res.status(200).send({
             success: 'false',
             msg: 'This email id already Registered.'
           })
@@ -124,7 +207,7 @@ app.post('/organizerSignup', (req, res) => {
             }else {
 
                 mailer.sendMail({
-      from : 'sumit@bhayanisumit.in',
+      from : fromEmail,
       to :  req.body.organizer_email ,
       subject : 'Invitee.ca - Confirm your Email',
       template : 'register',
@@ -135,7 +218,7 @@ app.post('/organizerSignup', (req, res) => {
   },function(err,respose){
       if(err){
         console.log(err);
-        res.send('bed email');
+        
       }
       res.send('good email');
   });
@@ -151,17 +234,45 @@ app.post('/organizerSignup', (req, res) => {
                msg : "Registered successfully! Please Confirm via Email, Thank you" 
             })
         }
-        
          }) 
-    })
-
-
-        }
+        })
+     }
   })
-
-   
-    
 });
+ 
+
+  app.post('/changeforgotpassword',function(req,res){
+
+      db.collection('forogotpasswordData').findOne({  _id: new mongodb.ObjectID(req.body.id)})
+      .then(function(doc) {
+        if(!doc){
+           res.status(200).send({
+            success: 'false',
+            message: 'No User id Match! Try Again.'
+          })
+        }else {
+           
+                 bcrypt.hash(req.body.password, 10, function(err, hash){
+                   db.collection('organizer').updateOne({ organizer_email: doc.organizer_email},
+                      { $set: { "organizer_password" : hash}}, function(err, result) {
+                        if (err){
+                            res.status(200).json({
+                               success: 'false',
+                               message : "password dose not change successfully."
+                        });
+                        }  
+                        res.status(200).json({
+                               success: 'true',
+                               message : "password change successfully. Please Login with new password"
+                        });
+                    });
+                 })
+          
+           
+        }
+});
+ });
+
 
  app.post('/api/changepassword',VerifyToken,function(req,res){
       db.collection('organizer').findOne({  _id: new mongodb.ObjectID(req.body.organizerId)})
