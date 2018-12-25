@@ -349,23 +349,79 @@ app.post('/api/uploadorganizerprofile',VerifyToken,upload.single('photo'), funct
       }
 });
  
+ 
+
+ app.post('/organizerFirstLogin', function(req, res){
+
+
+  db.collection('organizer').findOne({  _id: new mongodb.ObjectID(req.body.organizer_email)})
+ .then(function(doc) {  
+   
+        if(!doc){
+           res.status(200).send({
+            success: 'false',
+            message: 'No Email Found'
+          })
+        }else {
+       bcrypt.compare(req.body.organizer_password_s, doc.organizer_password, function(err, result){
+
+          if(result){
+                 if (err){
+         return console.log(err);
+       }  
+       else {
+         db.collection('organizer').updateOne(
+      { _id: new mongodb.ObjectID(req.body.organizer_email) },
+      { $set: { "organizer_status" :  "active"}}, function(err, result) {
+            if(result){
+                   const organizer_user = {
+                     organizer_email: doc.organizer_email,
+                     organizer_name : doc.organizer_name,
+                     organizer_id : doc._id,
+                     organizer_photo : doc.organizer_photo
+                  }
+                   const JWTToken = jwt.sign({
+                       organizer_email: doc.organizer_email,
+                      _id: doc._id
+                    },
+                    config.secret,
+                     {
+                       expiresIn: '300h'
+                     });
+                 
+                     return res.status(200).json({
+                       success: 'true',
+                       token: JWTToken,
+                       organizerRecord : organizer_user
+                     });
+            }else {
+                 res.status(200).send({
+            success: 'false',
+            message: 'No activate user! something went wrong'
+          })
+            }
+            
+      });
+
+        
+       }
+
+          }else {
+             return res.status(401).json({
+                  success: 'false',
+                  message : "password Wrong"
+               });
+
+          }
+
+       })
+ 
+     }
+   });
+ 
+});
 
 app.post('/organizerSignin', function(req, res){
-
-  //   let validator = new v( req.body, {
-  //       organizer_email_s: 'required',
-  //       organizer_password_s : 'required'
-  // });
-
-  //      validator.check().then(function (matched) {
-  //       if (!matched) {
-  //           res.status(422).send(validator.errors);
-  //       }else{
-  //         console.log("else");
-  //       }
-  //   });
-
-
   db.collection('organizer').findOne({ organizer_email: req.body.organizer_email_s})
  .then(function(doc) {
         if(!doc){
@@ -413,41 +469,10 @@ app.post('/organizerSignin', function(req, res){
                });
 
     }
-
-
  })
-          
-
-
-        }
+     }
    });
-
-
-
-   // db.collection('organizer').findOne({email: req.body.email})
-   // .exec()
-   // .then(function(user) {
-   //    bcrypt.compare(req.body.password, user.password, function(err, result){
-   //       if(err) {
-   //          return res.status(401).json({
-   //             failed: 'Unauthorized Access'
-   //          });
-   //       }
-   //       if(result) {
-   //          return res.status(200).json({
-   //             success: 'Welcome to the JWT Auth'
-   //          });
-   //       }
-   //       return res.status(401).json({
-   //          failed: 'Unauthorized Access'
-   //       });
-   //    });
-   // })
-   // .catch(error => {
-   //    res.status(500).json({
-   //       error: error
-   //    });
-   // });
+ 
 });
 
 app.post('/api/organizerprofile',VerifyToken, function(req, res){ 
@@ -622,14 +647,15 @@ app.post('/api/addEvent', VerifyToken, function (req, res) {
  });
 
 
-app.post('/api/addbanner', function (req, res) {
-var imageInfo = base64ToImage(req.body.data,"uploads/1/",{'fileName':  req.body.name, 'type':'png'}); 
+app.post('/api/addbanner',  function (req, res) {
+
+var imageInfo = base64ToImage(req.body.data,"uploads/"+req.body.organizer_id + "/",{'fileName':  req.body.name, 'type':'png'}); 
  
          const bannerData = {
             banner_title: req.body.name,
             banner_image_name : imageInfo.fileName,
-            banner_path : "uploads/1",   
-            organizer_id: "1",
+            banner_path : req.body.organizer_id+'/'+imageInfo.fileName,  
+            organizer_id: req.body.organizer_id,
             banner_upload_date : Date.now()
          };
 
@@ -701,27 +727,44 @@ db.collection('event', function(err, collection) {
 });
   
 });
-  app.post('/api/getDashboardData',VerifyToken, (req, res) => {
-    var bannerCount;
-    var eventCount;
-    var inquieryCount;
-  db.collection('banner').find({organizer_id:req.body.organizer_id }).count(function (e, count) {
-      bannerCount = count;
-      console.log(bannerCount);
- });
-  db.collection('event').find({organizer_id:req.body.organizer_id }).count(function (e, count) {
-       eventCount = count;
- });
-  db.collection('inquiery').find({organizer_id:req.body.organizer_id }).count(function (e, count) {
-       inquieryCount = count;
- });
- 
-      
+  app.post('/api/eventcount',VerifyToken, (req, res) => {
+   db.collection('event').find({organizer_id:req.body.organizer_id }).count(function (err, count) {
+        if (err){
+         return console.log(err);
+       }  
+        res.status(200).json({
+               success: 'true',
+               eventcount : count
+       });
 
+   });
 });
 
- 
+   app.post('/api/bannercount',VerifyToken, (req, res) => {
+   db.collection('banner').find({organizer_id:req.body.organizer_id }).count(function (err, count) {
+        if (err){
+         return console.log(err);
+       }  
+        res.status(200).json({
+               success: 'true',
+               bannercount : count
+       });
 
+   });
+});
+
+   app.post('/api/inquierycount',VerifyToken, (req, res) => {
+   db.collection('inquiery').find({organizer_id:req.body.organizer_id }).count(function (err, count) {
+        if (err){
+         return console.log(err);
+       }  
+        res.status(200).json({
+               success: 'true',
+               inquierycount : count
+       });
+
+   });
+});
 
 var db
 MongoClient.connect('mongodb+srv://sumitbhayani:Sumital12345@cluster0-sy0ym.gcp.mongodb.net',{ useNewUrlParser: true } ,(err, client) => {
