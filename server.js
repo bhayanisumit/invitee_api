@@ -56,7 +56,7 @@ var mailer = nodemailer.createTransport({
     port  : '80',
     auth: {
         user: "info@invitee.ca",
-        pass: "Sumital@0612"
+        pass: "*********"
     }
 });
  
@@ -767,7 +767,7 @@ db.collection('event', function(err, collection) {
 });
 
 var db
-MongoClient.connect('mongodb+srv://sumitbhayani:Sumital12345@cluster0-sy0ym.gcp.mongodb.net',{ useNewUrlParser: true } ,(err, client) => {
+MongoClient.connect('mongodb+srv://sumitbhayani:*****@cluster0-sy0ym.gcp.mongodb.net',{ useNewUrlParser: true } ,(err, client) => {
   if (err) return console.log(err)
   db = client.db('inviteti') // whatever your database name is
   app.listen(3000, () => {
