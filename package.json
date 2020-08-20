@@ -11,7 +11,7 @@
   "license": "ISC",
   "dependencies": {
     "base64-to-image": "^1.0.2",
-    "bcrypt": "^3.0.2",
+    "bcrypt": "^5.0.0",
     "body-parser": "^1.18.3",
     "ejs": "^2.6.1",
     "email-templates": "^5.0.2",
