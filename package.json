@@ -23,7 +23,7 @@
     "nodemailer": "^4.7.0",
     "nodemailer-express-handlebars": "^3.0.0",
     "nodemailer-smtp-transport": "^2.7.4",
-    "pug": "^2.0.3",
+    "pug": "^3.0.1",
     "swig-email-templates": "^5.0.1"
   },
   "devDependencies": {}
